@@ -5,21 +5,16 @@ using System.Text;
 
 namespace Parsel
 {
-    public class IndexedString
+    public struct IndexedString
     {
-        public IndexedString()
-        {
-        }
+        public string String;
+        public int StartAt;
 
-        public IndexedString(string str)
+        public IndexedString(string str, int startAt = 0)
         {
-            StartAt = 0;
+            StartAt = startAt;
             String = str;
         }
-
-        public string String { get; set; }
-
-        public int StartAt { get; set; }
 
         public bool IsEmpty
         {
@@ -39,11 +34,7 @@ namespace Parsel
 
         public IndexedString Shift(int n)
         {
-            return new IndexedString
-            {
-                String = String,
-                StartAt = StartAt + n
-            };
+            return new IndexedString(String, StartAt + n);
         }
 
         public char this[int index]
@@ -57,6 +48,11 @@ namespace Parsel
         public string Substring(int n, int count)
         {
             return String.Substring(StartAt + n, count);
+        }
+
+        public override string ToString()
+        {
+            return String.Substring(StartAt);
         }
     }
 }

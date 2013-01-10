@@ -7,38 +7,27 @@ using System.Text;
 
 namespace Parsel
 {
-    public class ParseResult<T>
-    {
-        public bool Success { get; set; }
+    internal delegate Expression SuccessContinuation(Expression remainingInput, Expression output);
 
-        public IndexedString RemainingInput { get; set; }
-
-        public T Output { get; set; }
-
-        public string ErrorMessage { get; set; }
-
-        public ParseResult(IndexedString remainingInput, T output)
-        {
-            Success = true;
-            RemainingInput = remainingInput;
-            Output = output;
-        }
-
-        public ParseResult(string errorMessage)
-        {
-            Success = false;
-            ErrorMessage = errorMessage;
-        }
-    }
-
-    public delegate ParseResult<T> CompiledParser<T>(IndexedString input, IDictionary<string, Delegate> parsers);
-
-    public delegate Expression SuccessContinuation(Expression remainingInput, Expression output);
-
-    public delegate Expression FailureContinuation(Expression errorMessage);
+    internal delegate Expression FailureContinuation(Expression remainingInput, Expression errorMessage);
 
     public static class Compiler
     {
+        public static IDictionary<string, Delegate> Compile(this IDictionary<string, IParser> productions)
+        {
+            var input = Expression.Parameter(typeof(IndexedString), "input");
+            var parsers = Expression.Parameter(typeof(IDictionary<string, Delegate>), "parsers");
+
+            var compiledProductions = new Dictionary<string, Delegate>();
+
+            foreach (var production in productions)
+            {
+                compiledProductions[production.Key] = production.Value.Apply(new CompileAction(production.Key, input, parsers));
+            }
+
+            return compiledProductions;
+        }
+
         private class CompileAction : IParserFunc<Delegate>
         {
             private readonly string productionName;
@@ -58,15 +47,11 @@ namespace Parsel
 
                 SuccessContinuation successContinuation = (remainingInput, output) =>
                     Expression.Return(@return,
-                        Expression.New(
-                            typeof(ParseResult<T>).GetConstructor(new[] { typeof(IndexedString), typeof(T) }),
-                            remainingInput, output));
+                        Expression.Call(typeof(ParseResult).GetMethod("Success").MakeGenericMethod(typeof(T)), remainingInput, output));
 
-                FailureContinuation failureContinuation = errorMessage =>
+                FailureContinuation failureContinuation = (remainingInput, errorMessage) =>
                      Expression.Return(@return,
-                        Expression.New(
-                            typeof(ParseResult<T>).GetConstructor(new[] { typeof(string) }),
-                            errorMessage));
+                        Expression.Call(typeof(ParseResult).GetMethod("Failure").MakeGenericMethod(typeof(T)), remainingInput, errorMessage));
 
                 var visitor = new CompilerVisitor(input, parsers, successContinuation, failureContinuation);
 
@@ -82,22 +67,7 @@ namespace Parsel
             }
         }
 
-        public static IDictionary<string, Delegate> Compile(this IDictionary<string, IParser> productions)
-        {
-            var input = Expression.Parameter(typeof(IndexedString), "input");
-            var parsers = Expression.Parameter(typeof(IDictionary<string, Delegate>), "parsers");
-
-            var compiledProductions = new Dictionary<string, Delegate>();
-
-            foreach (var production in productions)
-            {
-                compiledProductions[production.Key] = production.Value.Apply(new CompileAction(production.Key, input, parsers));
-            }
-
-            return compiledProductions;
-        }
-
-        public class CompilerVisitor : IParserVisitor<Expression>
+        private class CompilerVisitor : IParserVisitor<Expression>
         {
             private readonly Expression input;
             private readonly Expression parsers;
@@ -126,7 +96,7 @@ namespace Parsel
 
             public Expression Visit<T>(Return<T> parser)
             {
-                return Expression.Constant(parser.ReturnValue, typeof(T));
+                return onSuccess(input, Expression.Constant(parser.ReturnValue, typeof(T)));
             }
 
             public Expression Visit<S, T>(Select<S, T> parser)
@@ -156,45 +126,51 @@ namespace Parsel
                     (remainingInput, output) =>
                         Expression.IfThenElse(new ReplaceParameterVisitor(parser.Predicate.Parameters[0], output).Visit(parser.Predicate.Body),
                             onSuccess(remainingInput, output),
-                            onFailure(Expression.Constant("Assertion failed"))),
+                            onFailure(input, Expression.Constant("Assertion failed"))),
                     onFailure);
             }
 
             public Expression Visit(AnyChar parser)
             {
-                var firstChar = Expression.MakeIndex(input, typeof(IndexedString).GetProperty("Item"), new[] { Expression.Constant(0) });
+                var head = Expression.MakeIndex(input, typeof(IndexedString).GetProperty("Item"), new[] { Expression.Constant(0) });
+                var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(1));
 
                 var test = Expression.IsFalse(Expression.Property(input, "IsEmpty"));
-                var then = onSuccess(Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(1)), firstChar);
-                var @else = onFailure(Expression.Constant("Unexpected EOF"));
+                var then = onSuccess(tail, head);
+                var @else = onFailure(input, Expression.Constant("Unexpected EOF"));
 
                 return Expression.IfThenElse(test, then, @else);
             }
 
             public Expression Visit(MatchChar parser)
             {
-                var firstChar = Expression.MakeIndex(input, typeof(IndexedString).GetProperty("Item"), new[] { Expression.Constant(0) });
+                var head = Expression.MakeIndex(input, typeof(IndexedString).GetProperty("Item"), new[] { Expression.Constant(0) });
+                var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(1));
 
-                var test = Expression.AndAlso(
-                    Expression.IsFalse(Expression.Property(input, "IsEmpty")),
-                    Expression.Equal(firstChar, Expression.Constant(parser.Char)));
-                var then = onSuccess(Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(1)), Expression.Constant(parser.Char));
-                var @else = onFailure(Expression.Constant(string.Format("Expected '{0}'", parser.Char)));
-
-                return Expression.IfThenElse(test, then, @else);
+                return Expression.IfThenElse(
+                    Expression.IsTrue(Expression.Property(input, "IsEmpty")),
+                    onFailure(input, Expression.Constant(string.Format("Expected '{0}', met EOF", parser.Char))),
+                    Expression.IfThenElse(
+                        Expression.Equal(head, Expression.Constant(parser.Char)),
+                        onSuccess(tail, Expression.Constant(parser.Char)),
+                        onFailure(input, Expression.Call(typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }),
+                            Expression.Constant(string.Format("Expected '{0}', found '{{0}}'", parser.Char)),
+                            Expression.TypeAs(head, typeof(object))))));
             }
 
             public Expression Visit(MatchString parser)
             {
-                var initialPart = Expression.Call(input, "Substring", Type.EmptyTypes, new[] { Expression.Constant(0), Expression.Constant(parser.String.Length) });
+                var head = Expression.Call(input, "Substring", Type.EmptyTypes, new[] { Expression.Constant(0), Expression.Constant(parser.String.Length) });
+                var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(parser.String.Length));
 
-                var test = Expression.AndAlso(
-                    Expression.GreaterThanOrEqual(Expression.Property(input, "Length"), Expression.Constant(parser.String.Length)),
-                    Expression.Equal(initialPart, Expression.Constant(parser.String)));
-                var then = onSuccess(Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(parser.String.Length)), Expression.Constant(parser.String));
-                var @else = onFailure(Expression.Constant(string.Format("Expected '{0}'", parser.String)));
-
-                return Expression.IfThenElse(test, then, @else);
+                return Expression.IfThenElse(
+                    Expression.LessThan(Expression.Property(input, "Length"), Expression.Constant(parser.String.Length)),
+                    onFailure(input, Expression.Constant(string.Format("Expected '{0}', met EOF", parser.String))),
+                    Expression.IfThenElse(
+                        Expression.Equal(head, Expression.Constant(parser.String)),
+                        onSuccess(tail, head),
+                        onFailure(input, Expression.Call(typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }),
+                            Expression.Constant(string.Format("Expected '{0}', found '{{0}}'", parser.String)), head))));
             }
 
             public Expression Visit<T>(Star<T> parser)
@@ -208,7 +184,7 @@ namespace Parsel
                     (remainingInput, output) => Expression.Block(
                         Expression.Call(results, "Add", Type.EmptyTypes, output),
                         Expression.Assign(input1, remainingInput)),
-                    _ => Expression.Break(brk));
+                    (_1, _2) => Expression.Break(brk));
 
                 return Expression.Block(
                     new ParameterExpression[] { input1, results },
@@ -225,8 +201,8 @@ namespace Parsel
             {
                 return Compile(parser.Left, input, parsers,
                     onSuccess,
-                    errorMessage1 => Compile(parser.Right, input, parsers, onSuccess,
-                        errorMessage2 => onFailure(CombineErrorMessages(errorMessage1, errorMessage2)))
+                    (_, errorMessage1) => Compile(parser.Right, input, parsers, onSuccess,
+                        (remainingInput, errorMessage2) => onFailure(input, CombineErrorMessages(errorMessage1, errorMessage2)))
                     );
             }
 
@@ -247,15 +223,39 @@ namespace Parsel
 
                 var result = Expression.Variable(typeof(ParseResult<T>), "result");
 
-                return Expression.Block(new[] { result }, 
-                    new Expression [] 
+                return Expression.Block(new[] { result },
+                    new Expression[] 
                     {
                         Expression.Assign(result, Expression.Invoke(compiledParser, input, parsers)),
                         Expression.IfThenElse(
                             Expression.Property(result, "Success"),
                             onSuccess(Expression.Property(result, "RemainingInput"), Expression.Property(result, "Output")),
-                            onFailure(Expression.Property(result, "ErrorMessage")))
+                            onFailure(input, Expression.Property(result, "ErrorMessage")))
                     });
+            }
+        }
+
+        private class ReplaceParameterVisitor : ExpressionVisitor
+        {
+            private readonly ParameterExpression parameter;
+            private readonly Expression replacement;
+
+            public ReplaceParameterVisitor(ParameterExpression parameter, Expression replacement)
+            {
+                this.parameter = parameter;
+                this.replacement = replacement;
+            }
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                if (node.Equals(parameter))
+                {
+                    return replacement;
+                }
+                else
+                {
+                    return base.VisitParameter(node);
+                }
             }
         }
     }

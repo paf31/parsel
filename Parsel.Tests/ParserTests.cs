@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -7,23 +8,24 @@ namespace Parsel.Tests
     [TestClass]
     public class ParserTests
     {
-        public static void AssertMatch<T>(CompiledParser<T> p, string name, string s, string expectedRemainingInput = null)
+        public static void AssertMatch<T>(CompiledParser<T> p, string name, string s, string expectedRemainingInput = null, IDictionary<string, Delegate> compiledProductions = null)
         {
-            var result = p(new IndexedString { String = s, StartAt = 0 }, null);
+            var result = p(new IndexedString(s, 0), compiledProductions);
 
-            Assert.IsTrue(result.Success,
-                string.Format("{0} should match \"{1}\"", name, s));
+            Assert.IsTrue(result.Success, string.Format("{0} should match \"{1}\"", name, s));
+
             if (expectedRemainingInput != null)
             {
-                Assert.AreEqual(expectedRemainingInput, result.RemainingInput.String,
+                Assert.AreEqual(expectedRemainingInput, result.RemainingInput.ToString(),
                     string.Format("Expected remaining input \"{0}\", found \"{1}\".", expectedRemainingInput, result.RemainingInput.String));
             }
         }
 
-        public static void AssertNoMatch<T>(CompiledParser<T> p, string name, string s)
+        public static void AssertNoMatch<T>(CompiledParser<T> p, string name, string s, IDictionary<string, Delegate> compiledProductions = null)
         {
-            Assert.IsFalse(p(new IndexedString { String = s, StartAt = 0 }, null).Success,
-                string.Format("{0} should not match \"{1}\"", name, s));
+            var result = p(new IndexedString(s, 0), compiledProductions);
+
+            Assert.IsFalse(result.Success, string.Format("{0} should not match \"{1}\"", name, s));
         }
 
         [TestMethod]
@@ -147,7 +149,8 @@ namespace Parsel.Tests
         [TestMethod]
         public void TestNestedThens()
         {
-            var digits = from cs in (from c in Parsers.AnyChar() where char.IsDigit(c) select c).Star()
+            var digits = from cs in
+                             (from c in Parsers.AnyChar() where char.IsDigit(c) select c).Star()
                          where cs.Length > 0
                          select int.Parse(new string(cs));
 
@@ -164,6 +167,30 @@ namespace Parsel.Tests
             var compiled = parsers.Compile()["thens"] as CompiledParser<int>;
 
             AssertMatch(compiled, "thens", "123 + 456");
+        }
+
+        [TestMethod]
+        public void TestNamedParser()
+        {
+            var productions = new Dictionary<string, Parsel.IParser> 
+            { 
+                { "a", Parsel.Parsers.MatchChar('a').Then(Parsel.Parsers.Named<int>("b").Or(Parsers.Return(0)), (c, cs) => 1) },
+                { "b", Parsel.Parsers.MatchChar('b').Then(Parsel.Parsers.Named<int>("a").Or(Parsers.Return(0)), (c, cs) => 1) }
+            };
+
+            var compiledProductions = Parsel.Compiler.Compile(productions);
+
+            var a = compiledProductions["a"] as Parsel.CompiledParser<int>;
+            var b = compiledProductions["b"] as Parsel.CompiledParser<int>;
+
+            AssertMatch(a, "a", "a", string.Empty, compiledProductions);
+            AssertMatch(a, "a", "ab", string.Empty, compiledProductions);
+            AssertMatch(a, "a", "aba", string.Empty, compiledProductions);
+            AssertMatch(a, "a", "abab", string.Empty, compiledProductions);
+            AssertMatch(b, "b", "b", string.Empty, compiledProductions);
+            AssertMatch(b, "b", "ba", string.Empty, compiledProductions);
+            AssertMatch(b, "b", "bab", string.Empty, compiledProductions);
+            AssertMatch(b, "b", "baba", string.Empty, compiledProductions);
         }
     }
 }
