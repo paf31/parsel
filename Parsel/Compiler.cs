@@ -7,40 +7,29 @@ using System.Text;
 
 namespace Parsel
 {
-    internal delegate Expression SuccessContinuation(Expression remainingInput, Expression output);
-
-    internal delegate Expression FailureContinuation(Expression remainingInput, Expression errorMessage);
-
     public static class Compiler
     {
         public static IDictionary<string, Delegate> Compile(this IDictionary<string, IParser> productions)
         {
-            var input = Expression.Parameter(typeof(IndexedString), "input");
-            var parsers = Expression.Parameter(typeof(IDictionary<string, Delegate>), "parsers");
-
             var compiledProductions = new Dictionary<string, Delegate>();
 
             foreach (var production in productions)
             {
-                compiledProductions[production.Key] = production.Value.Apply(new CompileAction(production.Key, input, parsers));
+                compiledProductions[production.Key] = production.Value.Apply(new CompileAction());
             }
 
-            return compiledProductions;
+            var partiallyAppliedCompiledProductions = new Dictionary<string, Delegate>();
+
+            foreach (var production in productions)
+            {
+                partiallyAppliedCompiledProductions[production.Key] = production.Value.Apply(new PartiallyApplyParsersFunc(compiledProductions[production.Key], compiledProductions));
+            }
+
+            return partiallyAppliedCompiledProductions;
         }
 
         private class CompileAction : IParserFunc<Delegate>
         {
-            private readonly string productionName;
-            private readonly ParameterExpression input;
-            private readonly ParameterExpression parsers;
-
-            public CompileAction(string productionName, ParameterExpression input, ParameterExpression parsers)
-            {
-                this.productionName = productionName;
-                this.input = input;
-                this.parsers = parsers;
-            }
-
             public Delegate Apply<T>(IParser<T> p)
             {
                 LabelTarget @return = Expression.Label(typeof(ParseResult<T>));
@@ -52,210 +41,37 @@ namespace Parsel
                 FailureContinuation failureContinuation = (remainingInput, errorMessage) =>
                      Expression.Return(@return,
                         Expression.Call(typeof(ParseResult).GetMethod("Failure").MakeGenericMethod(typeof(T)), remainingInput, errorMessage));
-
-                var visitor = new CompilerVisitor(input, parsers, successContinuation, failureContinuation);
+                
+                var input = Expression.Parameter(typeof(IndexedString), "input");
+                var parsers = Expression.Parameter(typeof(IDictionary<string, Delegate>), "parsers");
 
                 var body = Expression.Block(new Expression[] 
                 {
-                    p.Accept(visitor), 
+                    p.Compile(input, parsers, successContinuation, failureContinuation),
                     Expression.Label(@return, Expression.Default(typeof(ParseResult<T>))) 
                 });
 
-                var lambda = Expression.Lambda<CompiledParser<T>>(body, input, parsers);
+                var lambda = Expression.Lambda<PreCompiledParser<T>>(body, input, parsers);
 
-                return (Delegate)lambda.Compile();
+                return lambda.Compile();
             }
         }
 
-        private class CompilerVisitor : IParserVisitor<Expression>
+        private class PartiallyApplyParsersFunc : IParserFunc<Delegate>
         {
-            private readonly Expression input;
-            private readonly Expression parsers;
-            private readonly SuccessContinuation onSuccess;
-            private readonly FailureContinuation onFailure;
+            private readonly Delegate compiledParser;
+            private readonly IDictionary<string, Delegate> compiledProductions;
 
-            public CompilerVisitor(Expression input,
-                Expression parsers,
-                SuccessContinuation onSuccess,
-                FailureContinuation onFailure)
+            public PartiallyApplyParsersFunc(Delegate compiledParser, Dictionary<string, Delegate> compiledProductions)
             {
-                this.input = input;
-                this.parsers = parsers;
-                this.onSuccess = onSuccess;
-                this.onFailure = onFailure;
+                this.compiledParser = compiledParser;
+                this.compiledProductions = compiledProductions;
             }
 
-            public static Expression Compile<T>(IParser<T> parser,
-                Expression input,
-                Expression parsers,
-                SuccessContinuation onSuccess,
-                FailureContinuation onFailure)
+            public Delegate Apply<T>(IParser<T> p)
             {
-                return parser.Accept(new CompilerVisitor(input, parsers, onSuccess, onFailure));
-            }
-
-            public Expression Visit<T>(Return<T> parser)
-            {
-                return onSuccess(input, Expression.Constant(parser.ReturnValue, typeof(T)));
-            }
-
-            public Expression Visit<S, T>(Select<S, T> parser)
-            {
-                Func<Expression, Expression> select = s => new ReplaceParameterVisitor(parser.Selector.Parameters[0], s).Visit(parser.Selector.Body);
-
-                return Compile(parser.Parser, input, parsers,
-                    (remainingInput, output) => onSuccess(remainingInput, select(output)),
-                    onFailure);
-            }
-
-            public Expression Visit<S, T, V>(Then<S, T, V> parser)
-            {
-                return Compile(parser.First, input, parsers,
-                    (remainingInput1, s) => Compile(parser.Second, remainingInput1, parsers,
-                        (remainingInput2, t) => onSuccess(remainingInput2,
-                            new ReplaceParameterVisitor(parser.Selector.Parameters[0], s).Visit(
-                                new ReplaceParameterVisitor(parser.Selector.Parameters[1], t).Visit(
-                                    parser.Selector.Body))),
-                        onFailure),
-                    onFailure);
-            }
-
-            public Expression Visit<T>(Where<T> parser)
-            {
-                return Compile(parser.Parser, input, parsers,
-                    (remainingInput, output) =>
-                        Expression.IfThenElse(new ReplaceParameterVisitor(parser.Predicate.Parameters[0], output).Visit(parser.Predicate.Body),
-                            onSuccess(remainingInput, output),
-                            onFailure(input, Expression.Constant("Assertion failed"))),
-                    onFailure);
-            }
-
-            public Expression Visit(AnyChar parser)
-            {
-                var head = Expression.MakeIndex(input, typeof(IndexedString).GetProperty("Item"), new[] { Expression.Constant(0) });
-                var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(1));
-
-                var test = Expression.IsFalse(Expression.Property(input, "IsEmpty"));
-                var then = onSuccess(tail, head);
-                var @else = onFailure(input, Expression.Constant("Unexpected EOF"));
-
-                return Expression.IfThenElse(test, then, @else);
-            }
-
-            public Expression Visit(MatchChar parser)
-            {
-                var head = Expression.MakeIndex(input, typeof(IndexedString).GetProperty("Item"), new[] { Expression.Constant(0) });
-                var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(1));
-
-                return Expression.IfThenElse(
-                    Expression.IsTrue(Expression.Property(input, "IsEmpty")),
-                    onFailure(input, Expression.Constant(string.Format("Expected '{0}', met EOF", parser.Char))),
-                    Expression.IfThenElse(
-                        Expression.Equal(head, Expression.Constant(parser.Char)),
-                        onSuccess(tail, Expression.Constant(parser.Char)),
-                        onFailure(input, Expression.Call(typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }),
-                            Expression.Constant(string.Format("Expected '{0}', found '{{0}}'", parser.Char)),
-                            Expression.TypeAs(head, typeof(object))))));
-            }
-
-            public Expression Visit(MatchString parser)
-            {
-                var head = Expression.Call(input, "Substring", Type.EmptyTypes, new[] { Expression.Constant(0), Expression.Constant(parser.String.Length) });
-                var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(parser.String.Length));
-
-                return Expression.IfThenElse(
-                    Expression.LessThan(Expression.Property(input, "Length"), Expression.Constant(parser.String.Length)),
-                    onFailure(input, Expression.Constant(string.Format("Expected '{0}', met EOF", parser.String))),
-                    Expression.IfThenElse(
-                        Expression.Equal(head, Expression.Constant(parser.String)),
-                        onSuccess(tail, head),
-                        onFailure(input, Expression.Call(typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }),
-                            Expression.Constant(string.Format("Expected '{0}', found '{{0}}'", parser.String)), head))));
-            }
-
-            public Expression Visit<T>(Star<T> parser)
-            {
-                var brk = Expression.Label();
-
-                var input1 = Expression.Variable(typeof(IndexedString));
-                var results = Expression.Variable(typeof(ICollection<T>));
-
-                var body = Compile(parser.Parser, input1, parsers,
-                    (remainingInput, output) => Expression.Block(
-                        Expression.Call(results, "Add", Type.EmptyTypes, output),
-                        Expression.Assign(input1, remainingInput)),
-                    (_1, _2) => Expression.Break(brk));
-
-                return Expression.Block(
-                    new ParameterExpression[] { input1, results },
-                    new Expression[] 
-                    {
-                        Expression.Assign(input1, input),
-                        Expression.Assign(results, Expression.New(typeof(List<T>))),
-                        Expression.Loop(body, brk), 
-                        onSuccess(input1, Expression.Call(typeof(Enumerable), "ToArray", new[] { typeof(T) }, results))
-                    });
-            }
-
-            public Expression Visit<T>(Or<T> parser)
-            {
-                return Compile(parser.Left, input, parsers,
-                    onSuccess,
-                    (_, errorMessage1) => Compile(parser.Right, input, parsers, onSuccess,
-                        (remainingInput, errorMessage2) => onFailure(input, CombineErrorMessages(errorMessage1, errorMessage2)))
-                    );
-            }
-
-            private Expression CombineErrorMessages(Expression errorMessage1, Expression errorMessage2)
-            {
-                return Expression.Call(typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object), typeof(object) }),
-                    Expression.Constant("Failure at disjunction: {0}, or {1}."),
-                    errorMessage1, errorMessage2);
-            }
-
-            public Expression Visit<T>(Named<T> parser)
-            {
-                var compiledParser = Expression.TypeAs(
-                    Expression.MakeIndex(parsers,
-                        typeof(IDictionary<string, Delegate>).GetProperty("Item"),
-                        new[] { Expression.Constant(parser.Name) }),
-                    typeof(CompiledParser<T>));
-
-                var result = Expression.Variable(typeof(ParseResult<T>), "result");
-
-                return Expression.Block(new[] { result },
-                    new Expression[] 
-                    {
-                        Expression.Assign(result, Expression.Invoke(compiledParser, input, parsers)),
-                        Expression.IfThenElse(
-                            Expression.Property(result, "Success"),
-                            onSuccess(Expression.Property(result, "RemainingInput"), Expression.Property(result, "Output")),
-                            onFailure(input, Expression.Property(result, "ErrorMessage")))
-                    });
-            }
-        }
-
-        private class ReplaceParameterVisitor : ExpressionVisitor
-        {
-            private readonly ParameterExpression parameter;
-            private readonly Expression replacement;
-
-            public ReplaceParameterVisitor(ParameterExpression parameter, Expression replacement)
-            {
-                this.parameter = parameter;
-                this.replacement = replacement;
-            }
-
-            protected override Expression VisitParameter(ParameterExpression node)
-            {
-                if (node.Equals(parameter))
-                {
-                    return replacement;
-                }
-                else
-                {
-                    return base.VisitParameter(node);
-                }
+                var compiledParserOfT = compiledParser as PreCompiledParser<T>;
+                return new CompiledParser<T>(input => compiledParserOfT(input, compiledProductions));
             }
         }
     }

@@ -8,9 +8,9 @@ namespace Parsel.Tests
     [TestClass]
     public class ParserTests
     {
-        public static void AssertMatch<T>(CompiledParser<T> p, string name, string s, string expectedRemainingInput = null, IDictionary<string, Delegate> compiledProductions = null)
+        public static void AssertMatch<T>(CompiledParser<T> p, string name, string s, string expectedRemainingInput = null)
         {
-            var result = p(new IndexedString(s, 0), compiledProductions);
+            var result = p(new IndexedString(s, 0));
 
             Assert.IsTrue(result.Success, string.Format("{0} should match \"{1}\"", name, s));
 
@@ -23,7 +23,7 @@ namespace Parsel.Tests
 
         public static void AssertNoMatch<T>(CompiledParser<T> p, string name, string s, IDictionary<string, Delegate> compiledProductions = null)
         {
-            var result = p(new IndexedString(s, 0), compiledProductions);
+            var result = p(new IndexedString(s, 0));
 
             Assert.IsFalse(result.Success, string.Format("{0} should not match \"{1}\"", name, s));
         }
@@ -183,14 +183,14 @@ namespace Parsel.Tests
             var a = compiledProductions["a"] as Parsel.CompiledParser<int>;
             var b = compiledProductions["b"] as Parsel.CompiledParser<int>;
 
-            AssertMatch(a, "a", "a", string.Empty, compiledProductions);
-            AssertMatch(a, "a", "ab", string.Empty, compiledProductions);
-            AssertMatch(a, "a", "aba", string.Empty, compiledProductions);
-            AssertMatch(a, "a", "abab", string.Empty, compiledProductions);
-            AssertMatch(b, "b", "b", string.Empty, compiledProductions);
-            AssertMatch(b, "b", "ba", string.Empty, compiledProductions);
-            AssertMatch(b, "b", "bab", string.Empty, compiledProductions);
-            AssertMatch(b, "b", "baba", string.Empty, compiledProductions);
+            AssertMatch(a, "a", "a", string.Empty);
+            AssertMatch(a, "a", "ab", string.Empty);
+            AssertMatch(a, "a", "aba", string.Empty);
+            AssertMatch(a, "a", "abab", string.Empty);
+            AssertMatch(b, "b", "b", string.Empty);
+            AssertMatch(b, "b", "ba", string.Empty);
+            AssertMatch(b, "b", "bab", string.Empty);
+            AssertMatch(b, "b", "baba", string.Empty);
         }
     }
 }

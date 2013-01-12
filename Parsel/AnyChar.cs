@@ -1,0 +1,35 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Text;
+
+namespace Parsel
+{
+    public class AnyChar : IParser<char>
+    {
+        internal AnyChar() { }
+
+        public void Perform(IParserAction a)
+        {
+            a.Perform(this);
+        }
+
+        public R Apply<R>(IParserFunc<R> f)
+        {
+            return f.Apply(this);
+        }
+
+        public Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        {
+            var head = Expression.MakeIndex(input, typeof(IndexedString).GetProperty("Item"), new[] { Expression.Constant(0) });
+            var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(1));
+
+            var test = Expression.IsFalse(Expression.Property(input, "IsEmpty"));
+            var then = onSuccess(tail, head);
+            var @else = onFailure(input, Expression.Constant("Unexpected EOF"));
+
+            return Expression.IfThenElse(test, then, @else);
+        }
+    }
+}
