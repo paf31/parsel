@@ -43,6 +43,24 @@ namespace Parsel
             return new Named<T> { Name = name };
         }
 
+        public static IParser<T> Named<T>(Expression<Func<IParser<T>>> e) 
+        {
+            var visitor = new FindNameVisitor();
+            visitor.Visit(e);
+            return Parsers.Named<T>(visitor.Name);
+        }
+
+        private class FindNameVisitor : ExpressionVisitor 
+        {
+            public string Name { get; set; }
+
+            protected override Expression VisitMethodCall(MethodCallExpression node)
+            {
+                Name = node.Method.Name;
+                return base.VisitMethodCall(node);
+            }
+        }
+
         public static IParser<T> Select<S, T>(this IParser<S> p, Expression<Func<S, T>> f)
         {
             return new Select<S, T> { Parser = p, Selector = f };
@@ -56,6 +74,11 @@ namespace Parsel
         public static IParser<T> Where<T>(this IParser<T> p, Expression<Func<T, bool>> predicate)
         {
             return p.Where(predicate, _ => "Assertion failed.");
+        }
+
+        public static IParser<Unit> Not<T>(this IParser<T> p)
+        {
+            return new Not<T> { Parser = p };
         }
 
         public static IParser<T> Where<T>(this IParser<T> p, Expression<Func<T, bool>> predicate, Expression<Func<T, string>> errorMessage)

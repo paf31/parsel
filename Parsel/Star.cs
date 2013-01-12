@@ -6,23 +6,13 @@ using System.Text;
 
 namespace Parsel
 {
-    public class Star<T> : IParser<T[]>
+    public class Star<T> : ParserBase<T[]>
     {
         public IParser<T> Parser { get; set; }
 
         internal Star() { }
 
-        public void Perform(IParserAction a)
-        {
-            a.Perform(this);
-        }
-
-        public R Apply<R>(IParserFunc<R> f)
-        {
-            return f.Apply(this);
-        }
-
-        public Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
         {
             var brk = Expression.Label();
 

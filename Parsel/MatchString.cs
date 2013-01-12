@@ -6,23 +6,13 @@ using System.Text;
 
 namespace Parsel
 {
-    public class MatchString : IParser<string>
+    public class MatchString : ParserBase<string>
     {
         public string String { get; set; }
 
         internal MatchString() { }
 
-        public void Perform(IParserAction a)
-        {
-            a.Perform(this);
-        }
-
-        public R Apply<R>(IParserFunc<R> f)
-        {
-            return f.Apply(this);
-        }
-
-        public Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
         {
             var head = Expression.Call(input, "Substring", Type.EmptyTypes, new[] { Expression.Constant(0), Expression.Constant(String.Length) });
             var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(String.Length));

@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Parsel
 {
-    public class Select<S, T> : IParser<T>
+    public class Select<S, T> : ParserBase<T>
     {
         public IParser<S> Parser { get; set; }
 
@@ -14,21 +14,11 @@ namespace Parsel
 
         internal Select() { }
 
-        public Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
         {
             return Parser.Compile(input, parsers,
                 (remainingInput, output) => onSuccess(remainingInput, Selector.Apply(output)),
                 onFailure);
-        }
-
-        public void Perform(IParserAction a)
-        {
-            a.Perform(this);
-        }
-
-        public R Apply<R>(IParserFunc<R> f)
-        {
-            return f.Apply(this);
         }
     }
 }

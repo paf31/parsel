@@ -42,12 +42,14 @@
     <Compile Include="AnyChar.cs" />
     <Compile Include="Delegates.cs" />
     <Compile Include="Compiler.cs" />
+    <Compile Include="Not.cs" />
     <Compile Include="IndexedString.cs" />
     <Compile Include="IParser.cs" />
     <Compile Include="MatchChar.cs" />
     <Compile Include="MatchString.cs" />
     <Compile Include="Named.cs" />
     <Compile Include="Or.cs" />
+    <Compile Include="ParserBase.cs" />
     <Compile Include="ParseResult.cs" />
     <Compile Include="Parsers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -56,6 +58,7 @@
     <Compile Include="Select.cs" />
     <Compile Include="Star.cs" />
     <Compile Include="Then.cs" />
+    <Compile Include="Unit.cs" />
     <Compile Include="Where.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

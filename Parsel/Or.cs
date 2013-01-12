@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Parsel
 {
-    public class Or<T> : IParser<T>
+    public class Or<T> : ParserBase<T>
     {
         public IParser<T> Left { get; set; }
 
@@ -14,17 +14,7 @@ namespace Parsel
 
         internal Or() { }
 
-        public void Perform(IParserAction a)
-        {
-            a.Perform(this);
-        }
-
-        public R Apply<R>(IParserFunc<R> f)
-        {
-            return f.Apply(this);
-        }
-
-        public Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
         {
             return Left.Compile(input, parsers,
                 onSuccess,

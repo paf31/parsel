@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Parsel
 {
-    public class Where<T> : IParser<T>
+    public class Where<T> : ParserBase<T>
     {
         public IParser<T> Parser { get; set; }
 
@@ -16,17 +16,7 @@ namespace Parsel
 
         internal Where() { }
 
-        public void Perform(IParserAction a)
-        {
-            a.Perform(this);
-        }
-
-        public R Apply<R>(IParserFunc<R> f)
-        {
-            return f.Apply(this);
-        }
-
-        public Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
         {
             return Parser.Compile(input, parsers,
                 (remainingInput, output) =>

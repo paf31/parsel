@@ -31,9 +31,7 @@ namespace Parsel.Tests
         [TestMethod]
         public void TestMatchChar()
         {
-            var parsers = new Dictionary<string, IParser> { { "a", Parsers.MatchChar('a') } };
-
-            var compiled = parsers.Compile()["a"] as CompiledParser<char>;
+            var compiled = Parsers.MatchChar('a').Compile();
 
             AssertMatch(compiled, "a", "a");
             AssertMatch(compiled, "a", "abc");
@@ -45,9 +43,7 @@ namespace Parsel.Tests
         [TestMethod]
         public void TestMatchString()
         {
-            var parsers = new Dictionary<string, IParser> { { "Test", Parsers.MatchString("Test") } };
-
-            var compiled = parsers.Compile()["Test"] as CompiledParser<string>;
+            var compiled = Parsers.MatchString("Test").Compile();
 
             AssertMatch(compiled, "Test", "Test");
             AssertMatch(compiled, "Test", "Testing");
@@ -58,9 +54,9 @@ namespace Parsel.Tests
         [TestMethod]
         public void TestOr()
         {
-            var parsers = new Dictionary<string, IParser> { { "fooOrBar", Parsers.MatchString("Foo").Or(Parsers.MatchString("Bar")) } };
+            var fooOrBar =Parsers.MatchString("Foo").Or(Parsers.MatchString("Bar"));
 
-            var compiled = parsers.Compile()["fooOrBar"] as CompiledParser<string>;
+            var compiled = fooOrBar.Compile();
 
             AssertMatch(compiled, "fooOrBar", "Foo");
             AssertMatch(compiled, "fooOrBar", "Bar");
@@ -71,9 +67,9 @@ namespace Parsel.Tests
         [TestMethod]
         public void TestStar()
         {
-            var parsers = new Dictionary<string, IParser> { { "xOrYStar", Parsers.MatchChar('x').Or(Parsers.MatchChar('y')).Star() } };
+            var xOrYStar = Parsers.MatchChar('x').Or(Parsers.MatchChar('y')).Star();
 
-            var compiled = parsers.Compile()["xOrYStar"] as CompiledParser<char[]>;
+            var compiled = xOrYStar.Compile();
 
             AssertMatch(compiled, "xOrYStar", "xxx");
             AssertMatch(compiled, "xOrYStar", "yyy");
@@ -93,9 +89,7 @@ namespace Parsel.Tests
                               where cs.Length > 0
                               select int.Parse(new string(cs));
 
-            var parsers = new Dictionary<string, IParser> { { "selectWhere", selectWhere } };
-
-            var compiled = parsers.Compile()["selectWhere"] as CompiledParser<int>;
+            var compiled = selectWhere.Compile();
 
             AssertMatch(compiled, "selectWhere", "123");
             AssertNoMatch(compiled, "selectWhere", "abc");
@@ -104,9 +98,11 @@ namespace Parsel.Tests
         [TestMethod]
         public void TestWhere()
         {
-            var parsers = new Dictionary<string, IParser> { { "xWhereXIsX", from x in Parsers.AnyChar() where x == 'x' select x } };
+            var xWhereXIsX = from x in Parsers.AnyChar()
+                             where x == 'x' 
+                             select x;
 
-            var compiled = parsers.Compile()["xWhereXIsX"] as CompiledParser<char>;
+            var compiled = xWhereXIsX.Compile();
 
             AssertMatch(compiled, "xWhereXIsX", "x");
             AssertNoMatch(compiled, "xWhereXIsX", "y");
@@ -119,9 +115,7 @@ namespace Parsel.Tests
             var then = Parsers.MatchString("Foo")
                 .Then(Parsers.MatchString("Bar"), (t1, t2) => t1 + t2);
 
-            var parsers = new Dictionary<string, IParser> { { "then", then } };
-
-            var compiled = parsers.Compile()["then"] as CompiledParser<string>;
+            var compiled = then.Compile();
 
             AssertMatch(compiled, "then", "FooBar");
         }
@@ -129,12 +123,10 @@ namespace Parsel.Tests
         [TestMethod]
         public void TestStarThenChar()
         {
-            var then = Parsers.MatchChar('a').Star()
+            var starThenChar = Parsers.MatchChar('a').Star()
                 .Then(Parsers.MatchChar('b'), (t1, t2) => 1);
 
-            var parsers = new Dictionary<string, IParser> { { "starThenChar", then } };
-
-            var compiled = parsers.Compile()["starThenChar"] as CompiledParser<int>;
+            var compiled = starThenChar.Compile();
 
             AssertMatch(compiled, "starThenChar", "b");
             AssertMatch(compiled, "starThenChar", "ab");
@@ -162,26 +154,47 @@ namespace Parsel.Tests
                 .Then(whitespace, (d, _) => d)
                 .Then(digits, (d1, d2) => d1 + d2);
 
-            var parsers = new Dictionary<string, IParser> { { "thens", thens } };
-
-            var compiled = parsers.Compile()["thens"] as CompiledParser<int>;
+            var compiled = thens.Compile();
 
             AssertMatch(compiled, "thens", "123 + 456");
         }
 
         [TestMethod]
+        public void TestNot()
+        {
+            var notA = Parsers.Not(Parsers.MatchChar('a'));
+            
+            var compiled = notA.Compile();
+
+            AssertMatch(compiled, "notA", "");
+            AssertMatch(compiled, "notA", "b");
+            AssertNoMatch(compiled, "notA", "a");
+        }
+
+        private static class TestNamedParser_Parsers
+        {
+            public static IParser<int> A()
+            {
+                return Parsel.Parsers.MatchChar('a')
+                    .Then(Parsel.Parsers.Named(() => B())
+                        .Or(Parsers.Return(0)), (c, cs) => 1);
+            }
+
+            public static IParser<int> B()
+            {
+                return Parsel.Parsers.MatchChar('b')
+                    .Then(Parsel.Parsers.Named(() => A())
+                        .Or(Parsers.Return(0)), (c, cs) => 1);
+            }
+        }
+
+        [TestMethod]
         public void TestNamedParser()
         {
-            var productions = new Dictionary<string, Parsel.IParser> 
-            { 
-                { "a", Parsel.Parsers.MatchChar('a').Then(Parsel.Parsers.Named<int>("b").Or(Parsers.Return(0)), (c, cs) => 1) },
-                { "b", Parsel.Parsers.MatchChar('b').Then(Parsel.Parsers.Named<int>("a").Or(Parsers.Return(0)), (c, cs) => 1) }
-            };
+            var compiledProductions = Parsel.Compiler.Compile(typeof(TestNamedParser_Parsers));
 
-            var compiledProductions = Parsel.Compiler.Compile(productions);
-
-            var a = compiledProductions["a"] as Parsel.CompiledParser<int>;
-            var b = compiledProductions["b"] as Parsel.CompiledParser<int>;
+            var a = compiledProductions["A"] as Parsel.CompiledParser<int>;
+            var b = compiledProductions["B"] as Parsel.CompiledParser<int>;
 
             AssertMatch(a, "a", "a", string.Empty);
             AssertMatch(a, "a", "ab", string.Empty);

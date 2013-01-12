@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Parsel
 {
-    public class Then<S, T, V> : IParser<V>
+    public class Then<S, T, V> : ParserBase<V>
     {
         public IParser<S> First { get; set; }
 
@@ -16,17 +16,7 @@ namespace Parsel
 
         internal Then() { }
 
-        public void Perform(IParserAction a)
-        {
-            a.Perform(this);
-        }
-
-        public R Apply<R>(IParserFunc<R> f)
-        {
-            return f.Apply(this);
-        }
-
-        public Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
         {
             return First.Compile(input, parsers,
                     (remainingInput1, s) => Second.Compile(remainingInput1, parsers,

@@ -9,6 +9,13 @@ namespace Parsel
 {
     public static class Compiler
     {
+        public static CompiledParser<T> Compile<T>(this IParser<T> parser)
+        {
+            var preCompiled = (PreCompiledParser<T>)parser.Apply(new CompileAction());
+
+            return input => preCompiled(input, new Dictionary<string, Delegate>());
+        }
+
         public static IDictionary<string, Delegate> Compile(this IDictionary<string, IParser> productions)
         {
             var compiledProductions = new Dictionary<string, Delegate>();
@@ -22,10 +29,29 @@ namespace Parsel
 
             foreach (var production in productions)
             {
-                partiallyAppliedCompiledProductions[production.Key] = production.Value.Apply(new PartiallyApplyParsersFunc(compiledProductions[production.Key], compiledProductions));
+                partiallyAppliedCompiledProductions[production.Key] = production.Value.Apply(
+                    new PartiallyApplyParsersFunc(compiledProductions[production.Key], compiledProductions));
             }
 
             return partiallyAppliedCompiledProductions;
+        }
+
+        public static IDictionary<string, Delegate> Compile(Type type)
+        {
+            var productions = new Dictionary<string, Parsel.IParser>();
+
+            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
+            {
+                if (method.IsStatic &&
+                    !method.GetParameters().Any() &&
+                    !method.GetGenericArguments().Any() &&
+                    typeof(IParser).IsAssignableFrom(method.ReturnType.GetGenericTypeDefinition()))
+                {
+                    productions[method.Name] = (IParser)method.Invoke(null, new object[0]);
+                }
+            }
+
+            return productions.Compile();
         }
 
         private class CompileAction : IParserFunc<Delegate>
@@ -41,7 +67,7 @@ namespace Parsel
                 FailureContinuation failureContinuation = (remainingInput, errorMessage) =>
                      Expression.Return(@return,
                         Expression.Call(typeof(ParseResult).GetMethod("Failure").MakeGenericMethod(typeof(T)), remainingInput, errorMessage));
-                
+
                 var input = Expression.Parameter(typeof(IndexedString), "input");
                 var parsers = Expression.Parameter(typeof(IDictionary<string, Delegate>), "parsers");
 

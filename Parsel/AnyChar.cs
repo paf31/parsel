@@ -6,21 +6,11 @@ using System.Text;
 
 namespace Parsel
 {
-    public class AnyChar : IParser<char>
+    public class AnyChar : ParserBase<char>
     {
         internal AnyChar() { }
 
-        public void Perform(IParserAction a)
-        {
-            a.Perform(this);
-        }
-
-        public R Apply<R>(IParserFunc<R> f)
-        {
-            return f.Apply(this);
-        }
-
-        public Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
         {
             var head = Expression.MakeIndex(input, typeof(IndexedString).GetProperty("Item"), new[] { Expression.Constant(0) });
             var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(1));
