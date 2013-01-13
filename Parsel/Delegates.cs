@@ -8,7 +8,7 @@ namespace Parsel
 {
     public delegate ParseResult<T> CompiledParser<T>(IndexedString input);
 
-    public delegate ParseResult<T> PreCompiledParser<T>(IndexedString input, IDictionary<string, Delegate> parsers);
+    public delegate ParseResult<T> PreCompiledParser<T>(IndexedString input, Delegate[] parsers);
  
     public delegate Expression SuccessContinuation(Expression remainingInput, Expression output);
 

@@ -14,11 +14,12 @@ namespace Parsel
 
         internal Select() { }
 
-        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions)
         {
             return Parser.Compile(input, parsers,
                 (remainingInput, output) => onSuccess(remainingInput, Selector.Apply(output)),
-                onFailure);
+                onFailure,
+                productions);
         }
     }
 }

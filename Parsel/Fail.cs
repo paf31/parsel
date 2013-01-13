@@ -10,7 +10,7 @@ namespace Parsel
     {
         public string ErrorMessage { get; set; }
 
-        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions)
         {
             return onFailure(input, Expression.Constant(ErrorMessage));
         }

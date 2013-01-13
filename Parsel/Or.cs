@@ -14,13 +14,14 @@ namespace Parsel
 
         internal Or() { }
 
-        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions)
         {
             return Left.Compile(input, parsers,
                 onSuccess,
                 (_, errorMessage1) => Right.Compile(input, parsers, onSuccess,
-                    (remainingInput, errorMessage2) => onFailure(input, CombineErrorMessages(errorMessage1, errorMessage2)))
-                );
+                    (remainingInput, errorMessage2) => onFailure(input, CombineErrorMessages(errorMessage1, errorMessage2)), 
+                    productions),
+                productions);
         }
 
         private Expression CombineErrorMessages(Expression errorMessage1, Expression errorMessage2)

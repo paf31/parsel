@@ -16,13 +16,15 @@ namespace Parsel
 
         internal Then() { }
 
-        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions)
         {
             return First.Compile(input, parsers,
                     (remainingInput1, s) => Second.Compile(remainingInput1, parsers,
                         (remainingInput2, t) => onSuccess(remainingInput2, Selector.Apply(s, t)),
-                        onFailure),
-                    onFailure);
+                        onFailure,
+                        productions),
+                    onFailure,
+                    productions);
         }
     }
 }

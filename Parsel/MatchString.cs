@@ -12,7 +12,7 @@ namespace Parsel
 
         internal MatchString() { }
 
-        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions)
         {
             var head = Expression.Call(input, "Substring", Type.EmptyTypes, new[] { Expression.Constant(0), Expression.Constant(String.Length) });
             var tail = Expression.Call(input, "Shift", Type.EmptyTypes, Expression.Constant(String.Length));

@@ -28,6 +28,7 @@ namespace Parsel
         Expression Compile(Expression input,
                            Expression parsers,
                            SuccessContinuation onSuccess,
-                           FailureContinuation onFailure);
+                           FailureContinuation onFailure,
+                           string[] productions);
     }
 }

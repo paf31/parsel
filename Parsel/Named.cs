@@ -12,13 +12,11 @@ namespace Parsel
 
         internal Named() { }
 
-        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions)
         {
-            var compiledParser = Expression.TypeAs(
-                    Expression.MakeIndex(parsers,
-                        typeof(IDictionary<string, Delegate>).GetProperty("Item"),
-                        new[] { Expression.Constant(Name) }),
-                    typeof(PreCompiledParser<T>));
+            int index = Array.IndexOf(productions, Name);
+
+            var compiledParser = Expression.TypeAs(Expression.ArrayIndex(parsers, Expression.Constant(index)), typeof(PreCompiledParser<T>));
 
             var result = Expression.Variable(typeof(ParseResult<T>), "result");
 

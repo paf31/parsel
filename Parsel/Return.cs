@@ -12,7 +12,7 @@ namespace Parsel
 
         internal Return() { }
 
-        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions)
         {
             return onSuccess(input, Expression.Constant(ReturnValue, typeof(T)));
         }

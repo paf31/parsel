@@ -12,7 +12,7 @@ namespace Parsel
 
         internal Star() { }
 
-        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure)
+        public override Expression Compile(Expression input, Expression parsers, SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions)
         {
             var brk = Expression.Label();
 
@@ -23,7 +23,8 @@ namespace Parsel
                 (remainingInput, output) => Expression.Block(
                     Expression.Call(results, "Add", Type.EmptyTypes, output),
                     Expression.Assign(input1, remainingInput)),
-                (_1, _2) => Expression.Break(brk));
+                (_1, _2) => Expression.Break(brk),
+                productions);
 
             return Expression.Block(
                 new ParameterExpression[] { input1, results },

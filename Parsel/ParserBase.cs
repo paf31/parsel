@@ -8,8 +8,8 @@ namespace Parsel
 {
     public abstract class ParserBase<T> : IParser<T>
     {
-        public abstract Expression Compile(Expression input, System.Linq.Expressions.Expression parsers,
-            SuccessContinuation onSuccess, FailureContinuation onFailure);
+        public abstract Expression Compile(Expression input, Expression parsers,
+            SuccessContinuation onSuccess, FailureContinuation onFailure, string[] productions);
 
         public void Perform(IParserAction a)
         {

@@ -11,9 +11,9 @@ namespace Parsel
     {
         public static CompiledParser<T> Compile<T>(this IParser<T> parser)
         {
-            var preCompiled = (PreCompiledParser<T>)parser.Apply(new CompileAction());
+            var preCompiled = (PreCompiledParser<T>)parser.Apply(new CompileAction(new string[0]));
 
-            return input => preCompiled(input, new Dictionary<string, Delegate>());
+            return input => preCompiled(input, new Delegate[0]);
         }
 
         public static IDictionary<string, Delegate> Compile(this IDictionary<string, IParser> productions)
@@ -22,7 +22,7 @@ namespace Parsel
 
             foreach (var production in productions)
             {
-                compiledProductions[production.Key] = production.Value.Apply(new CompileAction());
+                compiledProductions[production.Key] = production.Value.Apply(new CompileAction(productions.Keys.ToArray()));
             }
 
             var partiallyAppliedCompiledProductions = new Dictionary<string, Delegate>();
@@ -30,7 +30,7 @@ namespace Parsel
             foreach (var production in productions)
             {
                 partiallyAppliedCompiledProductions[production.Key] = production.Value.Apply(
-                    new PartiallyApplyParsersFunc(compiledProductions[production.Key], compiledProductions));
+                    new PartiallyApplyParsersFunc(compiledProductions[production.Key], compiledProductions.Values.ToArray()));
             }
 
             return partiallyAppliedCompiledProductions;
@@ -56,6 +56,13 @@ namespace Parsel
 
         private class CompileAction : IParserFunc<Delegate>
         {
+            private readonly string[] productionNames;
+
+            public CompileAction(string[] productionNames)
+            {
+                this.productionNames = productionNames;
+            }
+
             public Delegate Apply<T>(IParser<T> p)
             {
                 LabelTarget @return = Expression.Label(typeof(ParseResult<T>));
@@ -69,11 +76,11 @@ namespace Parsel
                         Expression.Call(typeof(ParseResult).GetMethod("Failure").MakeGenericMethod(typeof(T)), remainingInput, errorMessage));
 
                 var input = Expression.Parameter(typeof(IndexedString), "input");
-                var parsers = Expression.Parameter(typeof(IDictionary<string, Delegate>), "parsers");
+                var parsers = Expression.Parameter(typeof(Delegate[]), "parsers");
 
                 var body = Expression.Block(new Expression[] 
                 {
-                    p.Compile(input, parsers, successContinuation, failureContinuation),
+                    p.Compile(input, parsers, successContinuation, failureContinuation, productionNames),
                     Expression.Label(@return, Expression.Default(typeof(ParseResult<T>))) 
                 });
 
@@ -86,9 +93,9 @@ namespace Parsel
         private class PartiallyApplyParsersFunc : IParserFunc<Delegate>
         {
             private readonly Delegate compiledParser;
-            private readonly IDictionary<string, Delegate> compiledProductions;
+            private readonly Delegate[] compiledProductions;
 
-            public PartiallyApplyParsersFunc(Delegate compiledParser, Dictionary<string, Delegate> compiledProductions)
+            public PartiallyApplyParsersFunc(Delegate compiledParser, Delegate[] compiledProductions)
             {
                 this.compiledParser = compiledParser;
                 this.compiledProductions = compiledProductions;
