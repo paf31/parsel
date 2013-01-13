@@ -23,7 +23,7 @@ namespace Parsel
         R Apply<T>(IParser<T> p);
     }
 
-    public interface IParser<T> : IParser
+    public interface IParser<out T> : IParser
     {
         Expression Compile(Expression input,
                            Expression parsers,

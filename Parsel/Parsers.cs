@@ -13,6 +13,11 @@ namespace Parsel
             return new Return<T> { ReturnValue = returnValue };
         }
 
+        public static IParser<T> Fail<T>(string errorMessage)
+        {
+            return new Fail<T> { ErrorMessage = errorMessage };
+        }
+
         public static IParser<char> AnyChar()
         {
             return new AnyChar();
