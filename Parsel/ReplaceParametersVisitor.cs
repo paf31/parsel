@@ -15,7 +15,7 @@ namespace Parsel
 
         public static Expression Apply<S, T, V>(this Expression<Func<S, T, V>> f, Expression s, Expression t)
         {
-            return f.Body.Replace(f.Parameters[0], s).Replace(f.Parameters[1], s);
+            return f.Body.Replace(f.Parameters[0], s).Replace(f.Parameters[1], t);
         }
 
         public static Expression Replace(this Expression body, ParameterExpression parameter, Expression replacement)
