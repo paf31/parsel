@@ -205,5 +205,49 @@ namespace Parsel.Tests
             AssertMatch(b, "b", "bab", string.Empty);
             AssertMatch(b, "b", "baba", string.Empty);
         }
+
+        [TestMethod]
+        public void TestBetween()
+        {
+            var parens = Parsers.MatchString("foo").Between(Parsers.MatchChar('('), Parsers.MatchChar(')'));
+
+            var compiled = parens.Compile();
+
+            AssertMatch(compiled, "foos", "(foo)", string.Empty);
+            AssertNoMatch(compiled, "foos", "foo");
+            AssertNoMatch(compiled, "foos", "(foo");
+            AssertNoMatch(compiled, "foos", "foo)");
+            AssertNoMatch(compiled, "foos", "");
+        }
+
+        [TestMethod]
+        public void TestSepBy()
+        {
+            var foos = Parsers.MatchString("foo").SepBy(Parsers.MatchChar(',')).ThenL(Parsers.Not(Parsers.AnyChar()));
+
+            var compiled = foos.Compile();
+
+            AssertMatch(compiled, "foos", "foo", string.Empty);
+            AssertMatch(compiled, "foos", "foo,foo", string.Empty);
+            AssertNoMatch(compiled, "foos", "foofoo");
+            AssertNoMatch(compiled, "foos", "bar");
+            AssertNoMatch(compiled, "foos", "foo,bar");
+            AssertNoMatch(compiled, "foos", "");
+        }
+
+        [TestMethod]
+        public void TestUntil()
+        {
+            var comment = Parsers.MatchString("/*")
+                .ThenR(Parsers.AnyChar().Until(Parsers.MatchString("*/")));
+
+            var compiled = comment.Compile();
+
+            AssertMatch(compiled, "comment", "/* test */", string.Empty);
+            AssertMatch(compiled, "comment", "/**/", string.Empty);
+            AssertNoMatch(compiled, "comment", "/*");
+            AssertNoMatch(compiled, "comment", "*/");
+            AssertNoMatch(compiled, "comment", "");
+        }
     }
 }

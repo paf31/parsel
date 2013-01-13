@@ -26,5 +26,10 @@ namespace Parsel
         {
             return parser.Then(sep.ThenR(parser).Star(), (t, ts) => new[] { t }.Concat(ts).ToArray());
         }
+
+        public static IParser<T[]> Until<T, T1>(this IParser<T> parser, IParser<T1> terminator)
+        {
+            return Parsers.Not(terminator).ThenR(parser).Star().ThenL(terminator);
+        }
     }
 }
