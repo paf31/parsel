@@ -43,6 +43,7 @@
     <Compile Include="Delegates.cs" />
     <Compile Include="Compiler.cs" />
     <Compile Include="Fail.cs" />
+    <Compile Include="IParserExtensions.cs" />
     <Compile Include="Not.cs" />
     <Compile Include="IndexedString.cs" />
     <Compile Include="IParser.cs" />
