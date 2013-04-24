@@ -5,6 +5,10 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A string together with a starting position. Using immutable strings can be costly in terms of memory, so it is 
+    /// better to keep the same string around, and also keep track of where the parser is up to.
+    /// </summary>
     public struct IndexedString
     {
         public string String;

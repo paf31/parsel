@@ -7,8 +7,15 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// Extension methods which can be used to compile the data representation of a parser into
+    /// a delegate
+    /// </summary>
     public static class Compiler
     {
+        /// <summary>
+        /// Compiles a parser
+        /// </summary>
         public static CompiledParser<T> Compile<T>(this IParser<T> parser)
         {
             var preCompiled = (PreCompiledParser<T>)parser.Apply(new CompileAction(new string[0]));
@@ -16,6 +23,11 @@ namespace Parsel
             return input => preCompiled(input, new Delegate[0]);
         }
 
+        /// <summary>
+        /// Compile a collection of mutually dependent parsers into a collection of delegates.
+        /// Dynamic methods cannot call other dynamic methods, so we need to name other parsers and pass them around in 
+        /// a Dictionary<,> in order to create recursive methods.
+        /// </summary>
         public static IDictionary<string, Delegate> Compile(this IDictionary<string, IParser> productions)
         {
             var compiledProductions = new Dictionary<string, Delegate>();
@@ -36,6 +48,11 @@ namespace Parsel
             return partiallyAppliedCompiledProductions;
         }
 
+        /// <summary>
+        /// Compile all parsers declared in a class
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
         public static IDictionary<string, Delegate> Compile(Type type)
         {
             var productions = new Dictionary<string, Parsel.IParser>();
@@ -54,6 +71,9 @@ namespace Parsel
             return productions.Compile();
         }
 
+        /// <summary>
+        /// A polymorphic function which compiles a parser to a delegate with the correct return type
+        /// </summary>
         private class CompileAction : IParserFunc<Delegate>
         {
             private readonly string[] productionNames;
@@ -90,6 +110,9 @@ namespace Parsel
             }
         }
 
+        /// <summary>
+        /// A polymorphic function which partially applies a compiled parser
+        /// </summary>
         private class PartiallyApplyParsersFunc : IParserFunc<Delegate>
         {
             private readonly Delegate compiledParser;

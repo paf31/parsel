@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which matches a specific char
+    /// </summary>
     public class MatchChar : ParserBase<char>
     {
         public char Char { get; set; }

@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which always fails
+    /// </summary>
     public class Fail<T> : ParserBase<T>
     {
         public string ErrorMessage { get; set; }

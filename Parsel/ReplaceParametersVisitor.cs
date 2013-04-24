@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// Static helper methods used to replace parameters inside expressions
+    /// </summary>
     internal static class ReplaceParameter
     {
         public static Expression Apply<S, T>(this Expression<Func<S, T>> f, Expression s)
@@ -24,6 +27,9 @@ namespace Parsel
         }
     }
 
+    /// <summary>
+    /// An expression visitor which replaces a single parameter with another expression
+    /// </summary>
     internal class ReplaceParameterVisitor : ExpressionVisitor
     {
         private readonly ParameterExpression parameter;

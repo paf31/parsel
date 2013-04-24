@@ -5,6 +5,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// The result of a parse attempt: success with an output, or failure with an error message
+    /// </summary>
     public class ParseResult<T>
     {
         private readonly bool success;
@@ -41,6 +44,9 @@ namespace Parsel
         }
     }
 
+    /// <summary>
+    /// Helper methods for constructing ParseResults
+    /// </summary>
     public static class ParseResult
     {
         public static ParseResult<T> Success<T>(IndexedString remainingInput, T output)

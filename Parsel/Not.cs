@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which succeeds if and only if another parser fails
+    /// </summary>
     public class Not<T> : ParserBase<Unit>
     {
         public IParser<T> Parser { get; set; }

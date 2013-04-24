@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which applies a filter to the result of another parser
+    /// </summary>
     public class Where<T> : ParserBase<T>
     {
         public IParser<T> Parser { get; set; }

@@ -5,6 +5,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A type with one inhabitant
+    /// </summary>
     public class Unit
     {
         public static readonly Unit Value = new Unit();

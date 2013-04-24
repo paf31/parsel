@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which invokes another parser repeatedly until it fails
+    /// </summary>
     public class Star<T> : ParserBase<T[]>
     {
         public IParser<T> Parser { get; set; }

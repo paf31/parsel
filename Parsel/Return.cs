@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which always succeeds
+    /// </summary>
     public class Return<T> : ParserBase<T>
     {
         public T ReturnValue { get; set; }

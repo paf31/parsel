@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which tries two alternatives
+    /// </summary>
     public class Or<T> : ParserBase<T>
     {
         public IParser<T> Left { get; set; }

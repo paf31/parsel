@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which invokes another parser by name
+    /// </summary>
     public class Named<T> : ParserBase<T>
     {
         public string Name { get; set; }

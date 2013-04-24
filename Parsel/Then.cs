@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which combines the results of two other parsers into a single result
+    /// </summary>
     public class Then<S, T, V> : ParserBase<V>
     {
         public IParser<S> First { get; set; }

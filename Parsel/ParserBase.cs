@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A subclass of all parser implementations. 
+    /// </summary>
     public abstract class ParserBase<T> : IParser<T>
     {
         public abstract Expression Compile(Expression input, Expression parsers,

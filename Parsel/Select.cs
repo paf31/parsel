@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Parsel
 {
+    /// <summary>
+    /// A parser which changes the return type by applying a function inside the result
+    /// </summary>
     public class Select<S, T> : ParserBase<T>
     {
         public IParser<S> Parser { get; set; }
